@@ -80,6 +80,7 @@ class Client:
         self.uaclient.pre_request_hook = self.check_connection
         self.user_certificate: Optional[x509.Certificate] = None
         self.user_private_key: Optional[PrivateKeyTypes] = None
+        self.user_chain: List[x509.Certificate] = []
         self._server_nonce = None
         self._session_counter = 1
         self.nodes: Shortcuts = Shortcuts(self.uaclient)
@@ -198,6 +199,7 @@ class Client:
         private_key_password: Optional[Union[str, bytes]] = None,
         server_certificate: Optional[Union[str, uacrypto.CertProperties, bytes]] = None,
         mode: ua.MessageSecurityMode = ua.MessageSecurityMode.SignAndEncrypt,
+        certificate_chain: Sequence[Union[str, uacrypto.CertProperties, bytes, Path]] | None = None,
     ) -> None:
         """
         Set SecureConnection mode.
@@ -259,6 +261,12 @@ class Client:
         load our certificate from file, either pem or der
         """
         self.user_certificate = await uacrypto.load_certificate(path, extension)
+
+    async def load_client_chain_cert(self, path: str, extension: Optional[str] = None) -> None:
+        """
+        load our certificate from file, either pem or der
+        """
+        self.user_chain.append(await uacrypto.load_certificate(path, extension))
 
     async def load_private_key(
         self, path: Path, password: Optional[Union[str, bytes]] = None, extension: Optional[str] = None
@@ -670,7 +678,7 @@ class Client:
         if not username and not (user_certificate and self.user_private_key):
             self._add_anonymous_auth(params)
         elif user_certificate:
-            self._add_certificate_auth(params, user_certificate, challenge)
+            self._add_certificate_auth(params, user_certificate, challenge, self.user_chain)
         else:
             self._add_user_auth(params, username, password)
         res = await self.uaclient.activate_session(params)
@@ -681,9 +689,12 @@ class Client:
         params.UserIdentityToken = ua.AnonymousIdentityToken()
         params.UserIdentityToken.PolicyId = self.server_policy(ua.UserTokenType.Anonymous).PolicyId
 
-    def _add_certificate_auth(self, params, certificate, challenge):
+    def _add_certificate_auth(self, params, certificate, challenge, cert_chain=None):
         params.UserIdentityToken = ua.X509IdentityToken()
         params.UserIdentityToken.CertificateData = uacrypto.der_from_x509(certificate)
+        cert_chain = cert_chain or []
+        for cert in cert_chain:
+            params.UserIdentityToken.CertificateData += uacrypto.der_from_x509(cert)
         # specs part 4, 5.6.3.1: the data to sign is created by appending
         # the last serverNonce to the serverCertificate
         policy = self.server_policy(ua.UserTokenType.Certificate)
