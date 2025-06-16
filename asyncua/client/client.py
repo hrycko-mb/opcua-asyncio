@@ -203,6 +203,7 @@ class Client:
         Set SecureConnection mode.
         Call this before connect()
         """
+        certificate_chain = certificate_chain or []
         if server_certificate is None:
             # Force unencrypted/unsigned SecureChannel to list the endpoints
             new_policy = security_policies.SecurityPolicyNone()
@@ -222,9 +223,13 @@ class Client:
             server_certificate = uacrypto.CertProperties(server_certificate)
         if not isinstance(certificate, uacrypto.CertProperties):
             certificate = uacrypto.CertProperties(certificate)
+        chain = [
+            cert if isinstance(cert, uacrypto.CertProperties) else uacrypto.CertProperties(cert)
+            for cert in certificate_chain
+        ]
         if not isinstance(private_key, uacrypto.CertProperties):
             private_key = uacrypto.CertProperties(private_key, password=private_key_password)
-        return await self._set_security(policy, certificate, private_key, server_certificate, mode)
+        return await self._set_security(policy, certificate, private_key, server_certificate, mode, chain)
 
     async def _set_security(
         self,
@@ -233,17 +238,20 @@ class Client:
         private_key: uacrypto.CertProperties,
         server_cert: uacrypto.CertProperties,
         mode: ua.MessageSecurityMode = ua.MessageSecurityMode.SignAndEncrypt,
+        certificate_chain: List[uacrypto.CertProperties] | None = None,
     ) -> None:
         if isinstance(server_cert, uacrypto.CertProperties):
             server_cert = await uacrypto.load_certificate(server_cert.path_or_content, server_cert.extension)
         cert = await uacrypto.load_certificate(certificate.path_or_content, certificate.extension)
+        certificate_chain = certificate_chain or []
+        chain = [await uacrypto.load_certificate(cert.path_or_content, cert.extension) for cert in certificate_chain]
         pk = await uacrypto.load_private_key(
             private_key.path_or_content,
             private_key.password,
             private_key.extension,
         )
         uacrypto.check_certificate(cert, self.application_uri, socket.gethostname())
-        self.security_policy = policy(server_cert, cert, pk, mode)  # type: ignore
+        self.security_policy = policy(server_cert, cert, pk, mode, host_cert_chain=chain)  # type: ignore
         self.uaclient.set_security(self.security_policy)
 
     async def load_client_certificate(self, path: str, extension: Optional[str] = None) -> None:

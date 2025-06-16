@@ -190,6 +190,8 @@ class MessageChunk:
             chunk.SecurityHeader.SecurityPolicyURI = security_policy.URI
             if security_policy.host_certificate and security_policy.Mode != ua.MessageSecurityMode.None_:
                 chunk.SecurityHeader.SenderCertificate = security_policy.host_certificate
+                for cert in security_policy.host_chain:
+                    chunk.SecurityHeader.SenderCertificate += cert
             if security_policy.peer_certificate:
                 chunk.SecurityHeader.ReceiverCertificateThumbPrint = hashlib.sha1(
                     security_policy.peer_certificate
