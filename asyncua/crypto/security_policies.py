@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 import struct
 import time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, List
 
 from abc import ABCMeta, abstractmethod
 from ..ua import SecurityPolicyType, MessageSecurityMode, UaError
@@ -488,7 +488,7 @@ class SecurityPolicy:
     peer_certificate: Optional[bytes]
     host_certificate: Optional[bytes]
     permissions: Optional[PermissionRuleset]
-    host_chain: list[bytes]
+    host_chain: List[bytes]
 
     @abstractmethod
     def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None, host_cert_chain=None):

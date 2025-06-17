@@ -240,7 +240,7 @@ class Client:
         private_key: uacrypto.CertProperties,
         server_cert: uacrypto.CertProperties,
         mode: ua.MessageSecurityMode = ua.MessageSecurityMode.SignAndEncrypt,
-        certificate_chain: List[uacrypto.CertProperties] | None = None,
+        certificate_chain: Sequence[uacrypto.CertProperties] | None = None,
     ) -> None:
         if isinstance(server_cert, uacrypto.CertProperties):
             server_cert = await uacrypto.load_certificate(server_cert.path_or_content, server_cert.extension)
@@ -264,7 +264,7 @@ class Client:
 
     async def load_client_chain_cert(self, path: str, extension: Optional[str] = None) -> None:
         """
-        load our certificate from file, either pem or der
+        load one certificate from file, appending it to the chain, either pem or der
         """
         self.user_chain.append(await uacrypto.load_certificate(path, extension))
 
