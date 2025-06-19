@@ -199,7 +199,7 @@ class Client:
         private_key_password: Optional[Union[str, bytes]] = None,
         server_certificate: Optional[Union[str, uacrypto.CertProperties, bytes]] = None,
         mode: ua.MessageSecurityMode = ua.MessageSecurityMode.SignAndEncrypt,
-        certificate_chain: Sequence[Union[str, uacrypto.CertProperties, bytes, Path]] | None = None,
+        certificate_chain: Optional[Sequence[Union[str, uacrypto.CertProperties, bytes, Path]]] = None,
     ) -> None:
         """
         Set SecureConnection mode.
