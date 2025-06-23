@@ -5,17 +5,19 @@ Low level binary client
 import asyncio
 import copy
 import logging
+from socket import socket
 from typing import Awaitable, Callable, Dict, List, Optional, Union
 
 from asyncua import ua
 from asyncua.common.session_interface import AbstractSession
-from ..common.utils import wait_for
 from asyncua.ua.uaerrors._base import UaError
-from ..ua.ua_binary import struct_from_binary, uatcp_to_binary, struct_to_binary, nodeid_from_binary, header_from_binary
-from ..ua.uaerrors import BadTimeout, BadNoSubscription, BadSessionClosed, BadUserAccessDenied, UaStructParsingError
-from ..ua.uaprotocol_auto import OpenSecureChannelResult, SubscriptionAcknowledgement
+
 from ..common.connection import SecureConnection, TransportLimits
+from ..common.utils import wait_for
 from ..crypto import security_policies
+from ..ua.ua_binary import header_from_binary, nodeid_from_binary, struct_from_binary, struct_to_binary, uatcp_to_binary
+from ..ua.uaerrors import BadNoSubscription, BadSessionClosed, BadTimeout, BadUserAccessDenied, UaStructParsingError
+from ..ua.uaprotocol_auto import OpenSecureChannelResult, SubscriptionAcknowledgement
 
 
 class UASocketProtocol(asyncio.Protocol):
@@ -73,6 +75,7 @@ class UASocketProtocol(asyncio.Protocol):
         self.transport = None
 
     def data_received(self, data: bytes) -> None:
+        print(f"Data received: {data[:8]!r}...")
         if self.receive_buffer:
             data = self.receive_buffer + data
             self.receive_buffer = None
@@ -165,6 +168,8 @@ class UASocketProtocol(asyncio.Protocol):
             self._connection.revolve_tokens()
 
         msg = self._connection.message_to_binary(binreq, message_type=message_type, request_id=self._request_id)
+        print(f"Sending message {msg[:8]}...")
+        print(f"Transport is {self.transport}")
         if self.transport is not None:
             self.transport.write(msg)
         return future
@@ -242,8 +247,10 @@ class UASocketProtocol(asyncio.Protocol):
         hello.MaxChunkCount = max_chunkcount
         ack = asyncio.Future()
         self._callbackmap[0] = ack
+        print(f"sending hello with {self.transport=}")
         if self.transport is not None:
             self.transport.write(uatcp_to_binary(ua.MessageType.Hello, hello))
+        print(f"sent hello with {self.transport=}")
         return await wait_for(ack, self.timeout)
 
     async def open_secure_channel(self, params) -> OpenSecureChannelResult:
@@ -326,6 +333,16 @@ class UaClient(AbstractSession):
         # Timeout the connection when the server isn't available
         await asyncio.wait_for(
             asyncio.get_running_loop().create_connection(self._make_protocol, host, port), self._timeout
+        )
+
+    async def attach_socket(self, sock: socket):
+        """Connect to server socket."""
+        self.logger.info("attaching connection")
+        self._closing = False
+        # Timeout the connection when the server isn't available
+        print(sock)
+        await asyncio.wait_for(
+            asyncio.get_running_loop().create_connection(self._make_protocol, sock=sock), self._timeout
         )
 
     def disconnect_socket(self):
