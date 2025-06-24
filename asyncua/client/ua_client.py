@@ -5,7 +5,6 @@ Low level binary client
 import asyncio
 import copy
 import logging
-from socket import socket
 from typing import Awaitable, Callable, Dict, List, Optional, Union
 
 from asyncua import ua
@@ -75,7 +74,6 @@ class UASocketProtocol(asyncio.Protocol):
         self.transport = None
 
     def data_received(self, data: bytes) -> None:
-        print(f"Data received: {data[:8]!r}...")
         if self.receive_buffer:
             data = self.receive_buffer + data
             self.receive_buffer = None
@@ -168,8 +166,6 @@ class UASocketProtocol(asyncio.Protocol):
             self._connection.revolve_tokens()
 
         msg = self._connection.message_to_binary(binreq, message_type=message_type, request_id=self._request_id)
-        print(f"Sending message {msg[:8]}...")
-        print(f"Transport is {self.transport}")
         if self.transport is not None:
             self.transport.write(msg)
         return future
@@ -247,10 +243,8 @@ class UASocketProtocol(asyncio.Protocol):
         hello.MaxChunkCount = max_chunkcount
         ack = asyncio.Future()
         self._callbackmap[0] = ack
-        print(f"sending hello with {self.transport=}")
         if self.transport is not None:
             self.transport.write(uatcp_to_binary(ua.MessageType.Hello, hello))
-        print(f"sent hello with {self.transport=}")
         return await wait_for(ack, self.timeout)
 
     async def open_secure_channel(self, params) -> OpenSecureChannelResult:
@@ -335,15 +329,12 @@ class UaClient(AbstractSession):
             asyncio.get_running_loop().create_connection(self._make_protocol, host, port), self._timeout
         )
 
-    async def attach_socket(self, sock: socket):
-        """Connect to server socket."""
-        self.logger.info("attaching connection")
+    async def attach_socket(self, transport: asyncio.Transport) -> None:
+        self.logger.info("attaching to the provided connection")
         self._closing = False
-        # Timeout the connection when the server isn't available
-        print(sock)
-        await asyncio.wait_for(
-            asyncio.get_running_loop().create_connection(self._make_protocol, sock=sock), self._timeout
-        )
+        self.protocol = self._make_protocol()
+        transport.set_protocol(self.protocol)
+        self.protocol.connection_made(transport)
 
     def disconnect_socket(self):
         if not self.protocol:

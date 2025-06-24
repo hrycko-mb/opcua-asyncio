@@ -1,10 +1,22 @@
-from datetime import timedelta
 import asyncio
 import dataclasses
 import logging
 import socket
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 from urllib.parse import ParseResult, unquote, urlparse
 
 from cryptography import x509
@@ -26,7 +38,6 @@ from ..common.xmlimporter import XmlImporter
 from ..crypto import security_policies, uacrypto
 from ..crypto.validator import CertificateValidatorMethod
 from .ua_client import UaClient
-from .reverse_connect import wait_for_first_connection
 
 _logger = logging.getLogger(__name__)
 
@@ -345,37 +356,12 @@ class Client:
         """
         _logger.info("connect")
         await self.connect_socket()
-        await self.perform_handshake()
+        await self._perform_session_handshake()
 
-    # @classmethod
-    # async def from_reverse_connect(cls, host: str, port: int) -> None:
-    #     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    #     sock.bind((host, port))
-    #     sock.listen(1)
-    #     conn, addr = sock.accept()
-    #     header_bytes = conn.recv(8)
-    #     msg_type = header_bytes[0:3].decode("ascii")
-    #     chunk_type = header_bytes[3:4].decode("ascii")
-    #     message_size = struct.unpack("<I", header_bytes[4:8])[0]
-    #     conn.recv(message_size)
-    #     print(f"reverse conn from {addr}")
-    #     client = Client("opc.tcp://192.168.2.7:4840") # TODO: parse this from request
-    #     await client.uaclient.attach_socket(conn)
-    #     # self._server_url = urlparse("opc.tcp://0.0.0.0:4840")
-    #     # self.application_uri = "urn:Siemens:RailAutomation:CoreShieldSecurityStack:OPCUAServer"
-    #     await client.perform_handshake()
-
-    async def reverse_connect(self, host: str, port: int) -> None:
-        _logger.info("reverse connect")
-        conn = await wait_for_first_connection(host, port, timedelta(seconds=10))
-        print("reverse conn from")
-        await self.uaclient.attach_socket(conn.socket)
-        # self._server_url = urlparse("opc.tcp://0.0.0.0:4840")
-        # self.application_uri = "urn:Siemens:RailAutomation:CoreShieldSecurityStack:OPCUAServer"
-        await self.perform_handshake()
-
-    async def perform_handshake(self) -> None:
+    async def _perform_session_handshake(self) -> None:
+        """
+        Open secure channel, create and activate session
+        """
         try:
             await self.send_hello()
             await self.open_secure_channel()
