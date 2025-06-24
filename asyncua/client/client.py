@@ -1,29 +1,43 @@
 import asyncio
+import dataclasses
 import logging
 import socket
-import dataclasses
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union, cast, Callable, Coroutine
-from urllib.parse import urlparse, unquote, ParseResult
 from pathlib import Path
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
+from urllib.parse import ParseResult, unquote, urlparse
 
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
 
 import asyncua
 from asyncua import ua
-from .ua_client import UaClient
-from ..common.xmlimporter import XmlImporter
-from ..common.xmlexporter import XmlExporter
-from ..common.node import Node
+
 from ..common.manage_nodes import delete_nodes
-from ..common.subscription import Subscription, SubscriptionHandler
+from ..common.node import Node
 from ..common.shortcuts import Shortcuts
-from ..common.structures import load_type_definitions, load_enums
+from ..common.structures import load_enums, load_type_definitions
 from ..common.structures104 import load_data_type_definitions
-from ..common.utils import create_nonce, ServiceError
-from ..common.ua_utils import value_to_datavalue, copy_dataclass_attr
-from ..crypto import uacrypto, security_policies
+from ..common.subscription import Subscription, SubscriptionHandler
+from ..common.ua_utils import copy_dataclass_attr, value_to_datavalue
+from ..common.utils import ServiceError, create_nonce
+from ..common.xmlexporter import XmlExporter
+from ..common.xmlimporter import XmlImporter
+from ..crypto import security_policies, uacrypto
 from ..crypto.validator import CertificateValidatorMethod
+from .ua_client import UaClient
 
 _logger = logging.getLogger(__name__)
 
@@ -292,6 +306,17 @@ class Client:
             self.disconnect_socket()
         return endpoints
 
+    async def _open_secure_channel_and_get_server_endpoints(self) -> List[ua.EndpointDescription]:
+        """
+        Connect, ask server for endpoints, and disconnect
+        """
+        await self.open_secure_channel()
+        try:
+            endpoints = await self.get_endpoints()
+        finally:
+            await self.close_secure_channel()
+        return endpoints
+
     async def connect_and_find_servers(self) -> List[ua.ApplicationDescription]:
         """
         Connect, ask server for a list of known servers, and disconnect
@@ -331,6 +356,12 @@ class Client:
         """
         _logger.info("connect")
         await self.connect_socket()
+        await self._perform_session_handshake()
+
+    async def _perform_session_handshake(self) -> None:
+        """
+        Open secure channel, create and activate session
+        """
         try:
             await self.send_hello()
             await self.open_secure_channel()

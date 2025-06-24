@@ -24,9 +24,16 @@ class Hello:
 
 
 @dataclass
+class ReverseHello:
+    ServerUri: uatypes.String = uatypes.String("")
+    EndpointUrl: uatypes.String = uatypes.String("")
+
+
+@dataclass
 class MessageType:
     Invalid: bytes = b"INV"  # FIXME: check value
     Hello: bytes = b"HEL"
+    ReverseHello: bytes = b"RHE"
     Acknowledge: bytes = b"ACK"
     Error: bytes = b"ERR"
     SecureOpen: bytes = b"OPN"

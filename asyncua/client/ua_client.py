@@ -9,13 +9,14 @@ from typing import Awaitable, Callable, Dict, List, Optional, Union
 
 from asyncua import ua
 from asyncua.common.session_interface import AbstractSession
-from ..common.utils import wait_for
 from asyncua.ua.uaerrors._base import UaError
-from ..ua.ua_binary import struct_from_binary, uatcp_to_binary, struct_to_binary, nodeid_from_binary, header_from_binary
-from ..ua.uaerrors import BadTimeout, BadNoSubscription, BadSessionClosed, BadUserAccessDenied, UaStructParsingError
-from ..ua.uaprotocol_auto import OpenSecureChannelResult, SubscriptionAcknowledgement
+
 from ..common.connection import SecureConnection, TransportLimits
+from ..common.utils import wait_for
 from ..crypto import security_policies
+from ..ua.ua_binary import header_from_binary, nodeid_from_binary, struct_from_binary, struct_to_binary, uatcp_to_binary
+from ..ua.uaerrors import BadNoSubscription, BadSessionClosed, BadTimeout, BadUserAccessDenied, UaStructParsingError
+from ..ua.uaprotocol_auto import OpenSecureChannelResult, SubscriptionAcknowledgement
 
 
 class UASocketProtocol(asyncio.Protocol):
@@ -327,6 +328,13 @@ class UaClient(AbstractSession):
         await asyncio.wait_for(
             asyncio.get_running_loop().create_connection(self._make_protocol, host, port), self._timeout
         )
+
+    async def attach_socket(self, transport: asyncio.Transport) -> None:
+        self.logger.info("attaching to the provided connection")
+        self._closing = False
+        self.protocol = self._make_protocol()
+        transport.set_protocol(self.protocol)
+        self.protocol.connection_made(transport)
 
     def disconnect_socket(self):
         if not self.protocol:
