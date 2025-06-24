@@ -6,7 +6,7 @@ import functools
 import struct
 import logging
 from io import BytesIO
-from typing import IO, Any, Callable, Optional, Sequence, Type, TypeVar, Union
+from typing import Any, Callable, Optional, Sequence, Type, TypeVar, Union
 import typing
 import uuid
 from enum import Enum, IntFlag
@@ -711,7 +711,7 @@ def _create_dataclass_deserializer(objtype):
     return decode
 
 
-def struct_from_binary(objtype: Union[Type[T], str], data: IO) -> T:
+def struct_from_binary(objtype: Union[Type[T], str], data: Buffer) -> T:
     """
     unpack an ua struct. Arguments are an objtype as Python dataclass or string
     """
