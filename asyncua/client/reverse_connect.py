@@ -81,10 +81,11 @@ class ReverseConnectProtocol(asyncio.Protocol):
 
         try:
             msg = struct_from_binary(ua.ReverseHello, buf)
-            self.tg.create_task(self._set_reverse_connection(self.transport, msg))
         except Exception as e:
             self.disconnect()
             self.tg.create_task(self._set_error(e))
+        else:
+            self.tg.create_task(self._set_reverse_connection(self.transport, msg))
         finally:
             self.transport = None
 
