@@ -1,9 +1,11 @@
+# A copy of fork of the [asyncua](https://github.com/FreeOpcUa/opcua-asyncio) library
+
+The fork is **publicly** available on Github [here](https://github.com/hrycko-mb/opcua-asyncio).
+
+---
+
 OPC UA / IEC 62541 Client and Server for Python >= 3.8 and pypy3 .
 http://freeopcua.github.io/, https://github.com/FreeOpcUa/opcua-asyncio
-
-[![Python package](https://github.com/FreeOpcUa/opcua-asyncio/workflows/Python%20package/badge.svg)](https://github.com/FreeOpcUa/opcua-asyncio/actions)
-
-[![PyPI Package](https://badge.fury.io/py/asyncua.svg)](https://badge.fury.io/py/asyncua)
 
 # opcua-asyncio
 
