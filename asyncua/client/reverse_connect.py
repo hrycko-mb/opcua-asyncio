@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Generic, Optional, TypeVar, override
+from typing import Awaitable, Callable, Optional, override
 from urllib.parse import urlparse
 
 from asyncua import ua
@@ -19,31 +19,21 @@ class ReverseConnection:
     hello_msg: ReverseHello
 
 
-_T = TypeVar("_T")
-
-
-@dataclass(frozen=True)
-class LockedFuture(Generic[_T]):
-    fut: asyncio.Future[_T]
-    lock: asyncio.Lock
-
-
 class ReverseConnectProtocol(asyncio.Protocol):
     """
     Handle reverse connect connection.
-    Accept the first connection to succeed, or fail totally on first failed connection.
-    Set `lfut` to with the transport of first succeeded connection or with and exception of first failed.
+    Accept the first connection to succeed, or fail on first failed connection.
+    Set `fut` with the transport of first succeeded connection or with and exception of first failed.
     """
 
-    def __init__(self, lfut: LockedFuture[ReverseConnection], tg: asyncio.TaskGroup) -> None:
+    def __init__(self, fut: asyncio.Future[ReverseConnection]) -> None:
         """
-        :param lfut: Future with a lock, given to each connection,
-            to be filled with accepted reverse connection asyncio.Transport.
+        :param fut: Future, given to each connection,
+            to be filled with first accepted reverse connection asyncio.Transport.
         """
         self.transport = None
         self.peer = None
-        self.lfut = lfut
-        self.tg = tg
+        self.fut = fut
         self.receive_buffer = b""
 
     def connection_made(self, transport: asyncio.Transport) -> None:  # type: ignore[override]
@@ -55,7 +45,8 @@ class ReverseConnectProtocol(asyncio.Protocol):
         if not self.transport:
             return
 
-        if self.lfut.fut.done():
+        if self.fut.done():
+            _logger.debug("Reverse connection already happened")
             self.disconnect()
             return
 
@@ -70,8 +61,8 @@ class ReverseConnectProtocol(asyncio.Protocol):
             _logger.error(
                 "Received invalid message instead of reverse hello from server %s: %s", self.peer, header.MessageType
             )
-            asyncio.create_task(
-                self._set_error(ua.UaError(f"Received invalid message instead of ReverseHello: {header.MessageType=}"))
+            self.fut.set_exception(
+                ua.UaError(f"Received invalid message instead of ReverseHello: {header.MessageType=}")
             )
             self.disconnect()
 
@@ -82,10 +73,11 @@ class ReverseConnectProtocol(asyncio.Protocol):
         try:
             msg = struct_from_binary(ua.ReverseHello, buf)
         except Exception as e:
+            self.fut.set_exception(e)
             self.disconnect()
-            self.tg.create_task(self._set_error(e))
         else:
-            self.tg.create_task(self._set_reverse_connection(self.transport, msg))
+            payload = ReverseConnection(self.transport, msg)
+            self.fut.set_result(payload)
         finally:
             self.transport = None
 
@@ -97,35 +89,21 @@ class ReverseConnectProtocol(asyncio.Protocol):
         if self.transport:
             self.transport.close()
 
-    async def _set_error(self, exception: Exception) -> None:
-        async with self.lfut.lock:
-            if self.lfut.fut.done():
-                return
-            self.lfut.fut.set_exception(exception)
-
-    async def _set_reverse_connection(self, transport: asyncio.Transport, msg: ua.ReverseHello) -> None:
-        async with self.lfut.lock:
-            if self.lfut.fut.done():
-                return
-            payload = ReverseConnection(transport, msg)
-            self.lfut.fut.set_result(payload)
-
 
 async def wait_for_first_reverse_conn(host: str, port: int, *, timeout: float) -> ReverseConnection:
     """
     Spawn async server on `host` and `port` and return the socket (asyncio.Transport)
     of the first valid reverse connection alongside the received parameters.
     """
-    lfut = LockedFuture(asyncio.get_running_loop().create_future(), asyncio.Lock())
-    async with asyncio.TaskGroup() as tg:
-        server = await asyncio.get_running_loop().create_server(
-            lambda: ReverseConnectProtocol(lfut, tg), host, port, reuse_address=True, start_serving=True
-        )
-        try:
-            _logger.info("listening for reverse connection on %s:%s", host, port)
-            payload = await asyncio.wait_for(lfut.fut, timeout)
-        finally:
-            server.close()
+    fut = asyncio.get_running_loop().create_future()
+    server = await asyncio.get_running_loop().create_server(
+        lambda: ReverseConnectProtocol(fut), host, port, reuse_address=True, start_serving=True
+    )
+    try:
+        _logger.info("listening for reverse connection on %s:%s", host, port)
+        payload = await asyncio.wait_for(fut.fut, timeout)
+    finally:
+        server.close()
 
     return payload
 
