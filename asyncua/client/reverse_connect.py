@@ -95,13 +95,13 @@ async def wait_for_first_reverse_conn(host: str, port: int, *, timeout: float) -
     Spawn async server on `host` and `port` and return the socket (asyncio.Transport)
     of the first valid reverse connection alongside the received parameters.
     """
-    fut = asyncio.get_running_loop().create_future()
+    fut: asyncio.Future[ReverseConnection] = asyncio.get_running_loop().create_future()
     server = await asyncio.get_running_loop().create_server(
         lambda: ReverseConnectProtocol(fut), host, port, reuse_address=True, start_serving=True
     )
     try:
         _logger.info("listening for reverse connection on %s:%s", host, port)
-        payload = await asyncio.wait_for(fut.fut, timeout)
+        payload = await asyncio.wait_for(fut, timeout)
     finally:
         server.close()
 
