@@ -184,7 +184,7 @@ def generate_app_certificate_signing_request(
 
 
 def sign_certificate_request(
-    csr: x509.CertificateSigningRequest, issuer: x509.Certificate, private_key: rsa.RSAPrivateKey, days=365
+    csr: x509.CertificateSigningRequest, issuer: x509.Certificate, private_key: rsa.RSAPrivateKey, days: int = 365
 ) -> x509.Certificate:
     """Create certficate based on certificate signing request and ca
 
@@ -238,7 +238,7 @@ async def setup_self_signed_certificate(
     host_name: str,
     cert_use: list[x509.ObjectIdentifier],
     subject_attrs: dict[str, str],
-):
+) -> None:
     """Convenient helper for generating  a key and or basic certificate if needed:
     - The key/certificate doesn't exists (when key is missing, always regenerate the certificate)
     - If the certficate is invalid

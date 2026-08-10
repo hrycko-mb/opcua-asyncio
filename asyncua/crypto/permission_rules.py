@@ -1,7 +1,16 @@
+import sys
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+from io import BytesIO
 
 from asyncua import ua
+from asyncua.common import utils
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
 
 ADMIN_TYPES = [
     ua.ObjectIds.RegisterServerRequest_Encoding_DefaultBinary,
@@ -57,13 +66,13 @@ class User:
     name: str | None = None
 
 
-class PermissionRuleset:
+class PermissionRuleset(ABC):
     """
     Base class for permission ruleset
     """
 
-    def check_validity(self, user, action_type, body):
-        raise NotImplementedError
+    @abstractmethod
+    def check_validity(self, user: User, action_type: ua.ObjectIds, body: BytesIO | utils.Buffer) -> bool: ...
 
 
 class SimpleRoleRuleset(PermissionRuleset):
@@ -72,7 +81,7 @@ class SimpleRoleRuleset(PermissionRuleset):
     Admins alone can change address space, admins and users can read/write, and anonymous users can't do anything.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         admin_ids = list(map(ua.NodeId, ADMIN_TYPES))
         user_ids = list(map(ua.NodeId, USER_TYPES))
         self._permission_dict = {
@@ -81,7 +90,8 @@ class SimpleRoleRuleset(PermissionRuleset):
             UserRole.Anonymous: set(),
         }
 
-    def check_validity(self, user, action_type_id, body):
-        if action_type_id in self._permission_dict[user.role]:
+    @override
+    def check_validity(self, user: User, action_type: ua.ObjectIds, body: BytesIO | utils.Buffer) -> bool:
+        if action_type in self._permission_dict[user.role]:
             return True
         return False
