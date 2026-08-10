@@ -274,7 +274,7 @@ class Client:
         certificate: str | uacrypto.CertProperties | bytes | Path,
         private_key: str | uacrypto.CertProperties | bytes | Path,
         private_key_password: str | bytes | None = None,
-        server_certificate: str | uacrypto.CertProperties | bytes | None = None,
+        server_certificate: str | uacrypto.CertProperties | bytes | Path | None = None,
         mode: ua.MessageSecurityMode = ua.MessageSecurityMode.SignAndEncrypt,
         certificate_chain: Sequence[str | uacrypto.CertProperties | bytes | Path] | None = None,
     ) -> None:
