@@ -7,7 +7,7 @@ import pytest
 
 from asyncua import Client, Server, ua
 from asyncua.crypto import security_policies, uacrypto
-from asyncua.crypto.security_policies import SECURITY_POLICY_TYPE_MAP, Decryptor, Verifier
+from asyncua.crypto.security_policies import SECURITY_POLICY_TYPE_MAP, Cryptography, Decryptor, Verifier
 from asyncua.crypto.uacrypto import CertProperties
 from asyncua.crypto.validator import CertificateValidator, CertificateValidatorOptions
 from asyncua.server.user_managers import CertificateUserManager
@@ -215,18 +215,16 @@ async def test_basic256_encrypt_use_certificate_bytes(srv_crypto_all_certs):
         assert await clt.nodes.objects.get_children()
 
 
-@pytest.mark.skip("# FIXME: how to make it fail???")
-async def test_basic256_encrypt_fail(srv_crypto_all_certs):
-    # FIXME: how to make it fail???
-    _, _cert = srv_crypto_all_certs
+async def test_basic256_encrypt_mistamtched_security_policy_and_mode(srv_crypto_all_certs):
+    _, cert = srv_crypto_all_certs
     clt = Client(uri_crypto)
-    with pytest.raises(ua.UaError):
+    with pytest.raises(ValueError):
         await clt.set_security(
             security_policies.SecurityPolicyBasic256Sha256,
             f"{EXAMPLE_PATH / 'certificate-example.der'}",
             f"{EXAMPLE_PATH / 'private-key-example.pem'}",
             None,
-            None,
+            cert,
             mode=ua.MessageSecurityMode.None_,
         )
 
@@ -385,13 +383,14 @@ async def test_secure_channel_key_expiration(srv_crypto_one_cert, mocker):
         mode=ua.MessageSecurityMode.SignAndEncrypt,
     )
     async with clt:
-        assert clt.uaclient.security_policy.symmetric_cryptography.Prev_Verifier is None
-        assert clt.uaclient.security_policy.symmetric_cryptography.Prev_Decryptor is None
+        sym_crypto = clt.uaclient.security_policy.symmetric_cryptography
+        assert isinstance(sym_crypto, Cryptography)
+        assert sym_crypto.prev_verifier is None
+        assert sym_crypto.prev_decryptor is None
 
         await asyncio.sleep(timeout)
-        sym_crypto = clt.uaclient.security_policy.symmetric_cryptography
-        prev_verifier = sym_crypto.Prev_Verifier
-        prev_decryptor = sym_crypto.Prev_Decryptor
+        prev_verifier = sym_crypto.prev_verifier
+        prev_decryptor = sym_crypto.prev_decryptor
         assert isinstance(prev_verifier, Verifier)
         assert isinstance(prev_decryptor, Decryptor)
 
@@ -409,8 +408,9 @@ async def test_secure_channel_key_expiration(srv_crypto_one_cert, mocker):
 
         assert mock_decry_reset.call_count == 1
         assert mock_verif_reset.call_count == 1
-        assert clt.uaclient.security_policy.symmetric_cryptography.Prev_Verifier is None
-        assert clt.uaclient.security_policy.symmetric_cryptography.Prev_Decryptor is None
+
+        assert sym_crypto.prev_verifier is None
+        assert sym_crypto.prev_decryptor is None
 
 
 async def test_always_catch_new_cert_on_set_security():
