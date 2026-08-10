@@ -23,8 +23,7 @@ classifiers = [
 dependencies = [
   "aiosqlite",
   "anyio",
-  "cryptography>42.0.0",
-  "pyOpenSSL>23.2.0",
+  "cryptography>=45.0.0",
   "python-dateutil",
   "pytz",
   "sortedcontainers",
@@ -65,7 +64,6 @@ dev = [
   "pytest-mock",
   "pytest-repeat",
   "ruff",
-  "types-pyOpenSSL",
   "types-python-dateutil",
   "types-pytz",
 ]

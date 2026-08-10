@@ -175,7 +175,27 @@ async def test_ca_in_trust_store(cert_files, trust_store) -> None:
     await trust_store.load()
 
     cert_server: x509.Certificate = await load_certificate(cert_files / SERVER_CERT_FILE)
-    assert trust_store.is_trusted(cert_server) is True
+    assert trust_store.is_trusted(cert_server)
+
+
+async def test_cert_expired(cert_files: Path, trust_store: TrustStore) -> None:
+    shutil.copyfile(cert_files / CA_CERT_FILE, trust_store.trust_locations[0] / CA_CERT_FILE)
+    trust_store.policy_builder = trust_store.policy_builder.time(
+        datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=20 * 365)  # ~20 years
+    )
+
+    cert_server: x509.Certificate = await load_certificate(cert_files / SERVER_CERT_FILE)
+    assert not trust_store.is_trusted(cert_server)
+
+
+async def test_cert_not_yet_valid(cert_files: Path, trust_store: TrustStore) -> None:
+    shutil.copyfile(cert_files / CA_CERT_FILE, trust_store.trust_locations[0] / CA_CERT_FILE)
+    trust_store.policy_builder = trust_store.policy_builder.time(
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=20 * 365)  # ~20 years
+    )
+
+    cert_server: x509.Certificate = await load_certificate(cert_files / SERVER_CERT_FILE)
+    assert not trust_store.is_trusted(cert_server)
 
 
 async def test_empty_crl(cert_files, trust_store) -> None:
@@ -185,11 +205,9 @@ async def test_empty_crl(cert_files, trust_store) -> None:
 
     cert_server: x509.Certificate = await load_certificate(cert_files / SERVER_CERT_FILE)
 
-    assert trust_store.is_trusted(cert_server) is True
-    assert trust_store.is_revoked(cert_server) is False
-    assert trust_store.check_date_range(cert_server) is True
-
-    assert trust_store.validate(cert_server) is True
+    assert trust_store.is_trusted(cert_server)
+    assert not trust_store.is_revoked(cert_server)
+    assert trust_store.validate(cert_server)
 
 
 async def test_cert_in_crl(cert_files, trust_store) -> None:
@@ -199,8 +217,7 @@ async def test_cert_in_crl(cert_files, trust_store) -> None:
 
     cert_server: x509.Certificate = await load_certificate(cert_files / SERVER_CERT_FILE)
 
-    assert trust_store.is_trusted(cert_server) is True
-    assert trust_store.is_revoked(cert_server) is True
-    assert trust_store.check_date_range(cert_server) is True
+    assert trust_store.is_trusted(cert_server)
+    assert trust_store.is_revoked(cert_server)
 
-    assert trust_store.validate(cert_server) is False
+    assert not trust_store.validate(cert_server)
