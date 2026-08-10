@@ -60,16 +60,16 @@ class CertificateValidator:
         options: CertificateValidatorOptions = CertificateValidatorOptions.BASIC_VALIDATION
         | CertificateValidatorOptions.PEER_CLIENT,
         trust_store: TrustStore | None = None,
-    ):
+    ) -> None:
         self._options = options
         self._trust_store: TrustStore | None = trust_store
 
-    def set_validate_options(self, options: CertificateValidatorOptions):
+    def set_validate_options(self, options: CertificateValidatorOptions) -> None:
         """Change the use validation options at runtime"""
 
         self._options = options
 
-    async def validate(self, cert: x509.Certificate, app_description: ua.ApplicationDescription):
+    async def validate(self, cert: x509.Certificate, app_description: ua.ApplicationDescription) -> None:
         """Validate if a certificate is valid based on the validation options.
         When not valid is raises a ServiceError with an UA Result Code.
 
@@ -145,5 +145,5 @@ class CertificateValidator:
                 if self._trust_store and self._trust_store.is_revoked(cert):
                     raise ServiceError(ua.StatusCodes.BadCertificateRevoked)
 
-    async def __call__(self, cert: x509.Certificate, app_description: ua.ApplicationDescription):
+    async def __call__(self, cert: x509.Certificate, app_description: ua.ApplicationDescription) -> None:
         return await self.validate(cert, app_description)
