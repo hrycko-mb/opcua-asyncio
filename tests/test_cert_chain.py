@@ -72,7 +72,6 @@ def test_x509_from_der_single_cert():
         peer_cert_data = f.read()
 
     peer_cert = uacrypto.x509_from_der(peer_cert_data)
-    assert peer_cert is not None
     assert isinstance(peer_cert, x509.Certificate)
 
 
@@ -84,7 +83,6 @@ def test_x509_from_der_cert_chain():
     cert = uacrypto.x509_from_der(cert_chain)
 
     # Verify that the certificate was loaded correctly
-    assert cert is not None
     assert isinstance(cert, x509.Certificate)
 
     # Verify that the loaded certificate is the first one in the chain
@@ -95,11 +93,9 @@ def test_x509_from_der_cert_chain():
 
 def test_x509_from_der_invalid_data():
     """Test that x509_from_der handles invalid data correctly."""
-    # Test with None
-    assert uacrypto.x509_from_der(None) is None
-
     # Test with empty bytes
-    assert uacrypto.x509_from_der(b"") is None
+    with pytest.raises(ValueError):
+        uacrypto.x509_from_der(b"")
 
     # Test with invalid data that doesn't start with a SEQUENCE tag
     with pytest.raises(ValueError):
